@@ -1,26 +1,21 @@
 require 'spatial_adapter'
 require 'spatial_adapter/base/mysql'
-require 'active_record/connection_adapters/mysql2_adapter'
+require 'active_record/connection_adapters/jdbcmysql_adapter'
 
 module ActiveRecord::ConnectionAdapters
-  class SpatialMysql2Column < Mysql2Column
-    include SpatialAdapter::SpatialColumn
-    extend SpatialAdapter::Base::Mysql::SpatialColumn
-  end
-
-  class Mysql2Adapter
+  class MysqlAdapter
     include SpatialAdapter::Base::Mysql::Adapter
 
     #Redefinition of columns to add the information that a column is geometric
     def columns(table_name, name = nil)#:nodoc:
       show_fields_from(table_name, name).map do |field|
         klass = \
-          if field[1] =~ GEOMETRY_REGEXP
-            ActiveRecord::ConnectionAdapters::SpatialMysql2Column
+          if field["Type"] =~ GEOMETRY_REGEXP
+            ActiveRecord::ConnectionAdapters::SpatialMysqlColumn
           else
-            ActiveRecord::ConnectionAdapters::Mysql2Column
+            ActiveRecord::ConnectionAdapters::MysqlColumn
           end
-        klass.new(field[0], field[4], field[1], field[2] == "YES")
+        klass.new(field['Field'], field['Default'], field['Type'], field['Null'] == "YES")
       end
     end
 
@@ -31,20 +26,25 @@ module ActiveRecord::ConnectionAdapters
       indexes = []
       current_index = nil
       show_keys_from(table_name, name).each do |row|
-        if current_index != row[2]
-          next if row[2] == "PRIMARY" # skip the primary key
-          current_index = row[2]
+        if current_index != row['Key_name']
+          next if row['Key_name'] == "PRIMARY" # skip the primary key
+          current_index = row['Key_name']
           indexes << ActiveRecord::ConnectionAdapters::IndexDefinition \
-            .new(row[0], row[2], row[1] == "0", [], row[10] == "SPATIAL")
+            .new(row['Table'], row['Key_name'], row['Non_unique'] == "0", [], row['Index_type'] == "SPATIAL")
         end
-        indexes.last.columns << row[4]
+        indexes.last.columns << row['Column_name']
       end
       indexes
     end
 
     def options_for(table)
-      engine = show_table_status_like(table).first[1]
+      engine = show_table_status_like(table).first['Engine']
       engine !~ /inno/i ? "ENGINE=#{engine}" : nil
     end
+  end
+
+  class SpatialMysqlColumn < MysqlColumn
+    include SpatialAdapter::SpatialColumn
+    extend SpatialAdapter::Base::Mysql::SpatialColumn
   end
 end
