@@ -200,9 +200,7 @@ made via the project page at http://github.com/fragility/spatial_adapter
 
 == Running Tests
 
-The gem depdencencies can be installed with bundler. There are different
-development dependencies for jRuby and Ruby. To ensure you have the proper
-gem dependencies installed, run `bundle install` after switching ruby platforms.
+The gem depdencencies can be installed with `bundle install`.
 
 You will need to set up an empty database named `spatial_adapter` for each
 adapter you want to test.
